@@ -29,6 +29,34 @@ body {
   cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M4 2 L4 19 L8 15 L11 22 L14 21 L11 14 L17 14 Z' fill='%23FF1177' stroke='%23110010' stroke-width='1' stroke-linejoin='round'/%3E%3C/svg%3E") 4 2, auto;
 }
 
+/* ── PRELOADER ── */
+.preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #050505;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.preloader-canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.page-wrapper {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.6s ease;
+}
+
+.page-wrapper.page-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
 /* ── STARFIELD ── */
 #stars-canvas {
   position: fixed;

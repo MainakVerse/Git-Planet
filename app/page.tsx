@@ -63,11 +63,149 @@ export default function Home() {
   const whyCanvasRef = useRef<HTMLCanvasElement>(null)
   const expandedVizRef = useRef<HTMLCanvasElement>(null)
 
+  const [loaded, setLoaded] = useState(false)
   const [glitchIdx, setGlitchIdx] = useState(0)
   const [isGlitching, setIsGlitching] = useState(false)
   const [activeWhy, setActiveWhy] = useState(0)
   const [whyTimerKey, setWhyTimerKey] = useState(0)
   const [expandedViz, setExpandedViz] = useState<number | null>(null)
+  const preloaderCanvasRef = useRef<HTMLCanvasElement>(null)
+
+  // ── PRELOADER ──
+  useEffect(() => {
+    const c = preloaderCanvasRef.current!
+    if (!c) return
+    const ctx = c.getContext('2d')!
+    c.width = window.innerWidth
+    c.height = window.innerHeight
+    const W = c.width, H = c.height
+    const cx = W / 2, cy = H / 2
+
+    const BOOT_LINES = [
+      '> INITIALIZING GIT PLANET CORE...',
+      '> CONNECTING TO GITHUB UNIVERSE...',
+      '> LOADING INTELLIGENCE ENGINE...',
+      '> CALIBRATING REPO SCANNER...',
+      '> MAPPING ECOSYSTEM SIGNALS...',
+      '> SYSTEMS ONLINE. WELCOME.',
+    ]
+
+    let startTime = performance.now()
+    const TOTAL_MS = 2800
+    let raf: number
+
+    function draw(now: number) {
+      const elapsed = now - startTime
+      const progress = Math.min(elapsed / TOTAL_MS, 1)
+      ctx.clearRect(0, 0, W, H)
+
+      // Background
+      ctx.fillStyle = '#050505'
+      ctx.fillRect(0, 0, W, H)
+
+      // Rotating ring
+      const ringR = Math.min(W, H) * 0.14
+      ctx.save()
+      ctx.translate(cx, cy - 60)
+      ctx.rotate(elapsed * 0.001)
+      for (let i = 0; i < 12; i++) {
+        const a = (i / 12) * Math.PI * 2
+        const alpha = 0.15 + 0.85 * (i / 12) * progress
+        ctx.beginPath()
+        ctx.arc(Math.cos(a) * ringR, Math.sin(a) * ringR, 3 + (i / 12) * 2, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(0,229,255,${alpha})`
+        ctx.shadowColor = '#00E5FF'
+        ctx.shadowBlur = 10
+        ctx.fill()
+      }
+      ctx.restore()
+
+      // Inner counter-rotating ring
+      ctx.save()
+      ctx.translate(cx, cy - 60)
+      ctx.rotate(-elapsed * 0.0018)
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2
+        const alpha = 0.12 + 0.6 * (i / 8) * progress
+        ctx.beginPath()
+        ctx.arc(Math.cos(a) * ringR * 0.62, Math.sin(a) * ringR * 0.62, 2, 0, Math.PI * 2)
+        ctx.fillStyle = `rgba(123,97,255,${alpha})`
+        ctx.shadowColor = '#7B61FF'
+        ctx.shadowBlur = 8
+        ctx.fill()
+      }
+      ctx.restore()
+
+      // Logo image at center of rings
+      const logoImg = (window as any).__preloaderLogo as HTMLImageElement | undefined
+      if (logoImg && logoImg.complete) {
+        const s = ringR * 0.72
+        ctx.drawImage(logoImg, cx - s / 2, cy - 60 - s / 2, s, s)
+      }
+
+      // Progress arc
+      ctx.beginPath()
+      ctx.arc(cx, cy - 60, ringR + 14, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * progress)
+      ctx.strokeStyle = `rgba(0,229,255,${0.4 + 0.6 * progress})`
+      ctx.lineWidth = 2
+      ctx.shadowColor = '#00E5FF'
+      ctx.shadowBlur = 12
+      ctx.stroke()
+      ctx.shadowBlur = 0
+
+      // Boot lines
+      const lineH = 22
+      const totalLinesH = BOOT_LINES.length * lineH
+      const linesY = cy + ringR + 40
+      ctx.font = '12px "JetBrains Mono", monospace'
+      ctx.textAlign = 'left'
+      BOOT_LINES.forEach((line, i) => {
+        const lineProgress = Math.max(0, Math.min(1, (progress * BOOT_LINES.length) - i))
+        if (lineProgress <= 0) return
+        const chars = Math.floor(line.length * lineProgress)
+        const alpha = 0.4 + 0.6 * lineProgress
+        const isActive = i === Math.floor(progress * (BOOT_LINES.length - 1) + 0.5)
+        ctx.fillStyle = isActive ? `rgba(0,229,255,${alpha})` : `rgba(100,180,200,${alpha * 0.7})`
+        if (isActive) { ctx.shadowColor = '#00E5FF'; ctx.shadowBlur = 6 }
+        ctx.fillText(line.slice(0, chars) + (isActive && Math.floor(elapsed / 300) % 2 === 0 ? '█' : ''), cx - 220, linesY + i * lineH)
+        ctx.shadowBlur = 0
+      })
+
+      // Progress bar
+      const barW = 440, barH = 3
+      const barX = cx - barW / 2, barY = linesY + totalLinesH + 16
+      ctx.fillStyle = 'rgba(0,229,255,0.08)'
+      ctx.fillRect(barX, barY, barW, barH)
+      const fillGrd = ctx.createLinearGradient(barX, 0, barX + barW * progress, 0)
+      fillGrd.addColorStop(0, 'rgba(123,97,255,0.8)')
+      fillGrd.addColorStop(1, 'rgba(0,229,255,1)')
+      ctx.fillStyle = fillGrd
+      ctx.shadowColor = '#00E5FF'
+      ctx.shadowBlur = 8
+      ctx.fillRect(barX, barY, barW * progress, barH)
+      ctx.shadowBlur = 0
+
+      // Percentage
+      ctx.fillStyle = `rgba(0,229,255,${0.5 + 0.5 * progress})`
+      ctx.font = '11px "Orbitron", monospace'
+      ctx.textAlign = 'right'
+      ctx.fillText(Math.floor(progress * 100) + '%', cx + barW / 2, barY - 6)
+
+      if (progress < 1) {
+        raf = requestAnimationFrame(draw)
+      } else {
+        setTimeout(() => setLoaded(true), 320)
+      }
+    }
+
+    // Preload logo image for canvas draw
+    const img = new Image()
+    img.src = '/logo.png'
+    ;(window as any).__preloaderLogo = img
+
+    raf = requestAnimationFrame(draw)
+    return () => cancelAnimationFrame(raf)
+  }, [])
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -1154,6 +1292,16 @@ export default function Home() {
 
   return (
     <>
+      {/* Preloader */}
+      {!loaded && (
+        <div className="preloader">
+          <canvas ref={preloaderCanvasRef} className="preloader-canvas" />
+        </div>
+      )}
+
+      {/* Main content */}
+      <div className={`page-wrapper${loaded ? ' page-visible' : ''}`}>
+
       {/* Starfield */}
       <canvas ref={starsRef} id="stars-canvas" />
 
@@ -1554,6 +1702,8 @@ export default function Home() {
           <p style={{ color: 'var(--neon)', fontFamily: "'JetBrains Mono',monospace", fontSize: 11 }}>v2.4.1 // NEON BUILD</p>
         </div>
       </footer>
+
+      </div>{/* end page-wrapper */}
     </>
   )
 }
