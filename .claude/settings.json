@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find /c/Users/maina/OneDrive/Desktop/Git-Planet -not -path */node_modules/* -not -path */.git/* -not -path */.next/* -type f)"
+    ]
+  }
+}
