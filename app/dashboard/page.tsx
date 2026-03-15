@@ -733,6 +733,9 @@ export default function Dashboard() {
                     {group.items.map((item) => (
                       <button
                         key={item}
+                        onClick={() => {
+                          if (item === 'Auto Architecture Diagram') router.push('/dashboard/architecture')
+                        }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,
                           background: 'rgba(13,17,23,0.8)',
