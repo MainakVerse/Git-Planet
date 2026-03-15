@@ -148,21 +148,9 @@ export default function Home() {
       .catch(() => {})
   }, [router])
 
-  async function handleGithubLogin() {
+  function handleGithubLogin() {
     setAuthLoading(true)
-    try {
-      const res = await fetch('/api/auth/github', { method: 'POST' })
-      if (res.ok) {
-        router.push('/dashboard')
-      } else {
-        const err = await res.json()
-        alert(err.error || 'GitHub authentication failed.')
-      }
-    } catch {
-      alert('Network error. Please try again.')
-    } finally {
-      setAuthLoading(false)
-    }
+    window.location.href = '/api/auth/github/login'
   }
 
   // ── PRELOADER ──

@@ -1,6 +1,6 @@
 import { createHmac } from 'crypto'
 
-const SECRET = process.env.GITHUB_ACCESS_TOKEN || 'git-planet-fallback-secret'
+const SECRET = process.env.SESSION_SECRET || 'git-planet-fallback-secret'
 
 export function createSession(data: Record<string, unknown>): string {
   const payload = Buffer.from(JSON.stringify(data)).toString('base64url')

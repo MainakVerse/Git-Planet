@@ -2,8 +2,6 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifySession } from '@/lib/session'
 
-const GITHUB_TOKEN = process.env.GITHUB_ACCESS_TOKEN
-
 export async function GET() {
   const cookieStore = await cookies()
   const token = cookieStore.get('gh_session')?.value
@@ -16,12 +14,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
   }
 
-  if (!GITHUB_TOKEN) {
-    return NextResponse.json({ error: 'GitHub token not configured' }, { status: 500 })
+  const accessToken = session.access_token as string
+  if (!accessToken) {
+    return NextResponse.json({ error: 'No access token in session' }, { status: 401 })
   }
 
   const headers = {
-    Authorization: `Bearer ${GITHUB_TOKEN}`,
+    Authorization: `Bearer ${accessToken}`,
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
   }
