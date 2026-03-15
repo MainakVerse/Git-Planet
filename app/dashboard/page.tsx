@@ -34,8 +34,8 @@ const FEATURE_GROUPS = [
     label: 'CODE INTELLIGENCE',
     color: '#00E5FF',
     items: [
-      'Auto Architecture Diagram', 'Dependency Graph Visualizer', 'Code Quality Analyser',
-      'Dead Code Extractor', 'Complexity Scoring', 'Monorepo Structure Analysis',
+      'Auto Architecture Diagram', 'Dependency Grapher', 'Code Quality Analyser',
+      'Dead Code Extractor', 'Complexity Scoring', 'Wiki Generator',
     ],
   },
   {
@@ -735,9 +735,10 @@ export default function Dashboard() {
                         key={item}
                         onClick={() => {
                           if (item === 'Auto Architecture Diagram') router.push('/dashboard/architecture')
-                          else if (item === 'Dependency Graph Visualizer') router.push('/dashboard/dependency-graph')
+                          else if (item === 'Dependency Grapher') router.push('/dashboard/dependency-graph')
                           else if (item === 'Code Quality Analyser') router.push('/dashboard/code-quality')
                           else if (item === 'Dead Code Extractor') router.push('/dashboard/dead-code')
+                          else if (item === 'Complexity Scoring') router.push('/dashboard/complexity')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,

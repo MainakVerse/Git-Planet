@@ -380,7 +380,7 @@ export default function DependencyGraphPage() {
         <div style={{ width: 1, height: 20, background: 'rgba(123,97,255,0.1)' }} />
         <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', color: '#7B61FF', textShadow: '0 0 14px rgba(123,97,255,0.4)' }}>GIT PLANET</span>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'rgba(123,97,255,0.35)' }}>/</span>
-        <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: '#e6edf3' }}>DEPENDENCY GRAPH VISUALIZER</span>
+        <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: '#e6edf3' }}>Dependency Grapher</span>
 
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
           {graphData && (
@@ -641,7 +641,7 @@ export default function DependencyGraphPage() {
       {/* FOOTER */}
       <footer style={{ height: 24, flexShrink: 0, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderTop: '1px solid rgba(123,97,255,0.06)', background: 'rgba(5,5,5,0.8)' }}>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, letterSpacing: '0.14em', color: 'rgba(123,97,255,0.3)' }}>
-          GIT PLANET | DEPENDENCY GRAPH VISUALIZER | ts-morph AST · Cytoscape.js
+          GIT PLANET | Dependency Grapher | ts-morph AST · Cytoscape.js
         </span>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'rgba(123,97,255,0.25)' }}>@{user.login}</span>
       </footer>

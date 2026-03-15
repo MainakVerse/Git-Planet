@@ -1502,11 +1502,11 @@ export default function Home() {
             </div>
             <ul className="cap-list">
               <li>Automatic architecture diagram generator</li>
-              <li>Codebase dependency graph visualizer</li>
+              <li>Codebase Dependency Grapher</li>
               <li>Code Quality Analyser</li>
               <li>Dead code &amp; API surface extraction</li>
               <li>Repository complexity scoring</li>
-              <li>Monorepo structure analysis</li>
+              <li>Wiki Generator</li>
             </ul>
           </div>
           <div className="cap-card fade-up">
