@@ -1,11 +1,12 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts'
+import { ComposableMap, Geographies, Geography, Graticule, Sphere } from 'react-simple-maps'
 
 interface GithubUser {
   login: string; name: string | null; avatar_url: string; bio: string | null
@@ -78,6 +79,27 @@ const FEATURE_GROUPS = [
     ],
   },
 ]
+
+const REGION_DATA: Record<string, { label: string; commits: number; fill: string; hoverFill: string }> = {
+  na: { label: 'NORTH AMERICA', commits: 48320, fill: 'rgba(0,229,255,0.13)', hoverFill: 'rgba(0,229,255,0.35)' },
+  sa: { label: 'SOUTH AMERICA', commits: 13840, fill: 'rgba(0,200,240,0.11)', hoverFill: 'rgba(0,200,240,0.38)' },
+  eu: { label: 'EUROPE',        commits: 41200, fill: 'rgba(0,160,255,0.14)', hoverFill: 'rgba(0,160,255,0.4)'  },
+  af: { label: 'AFRICA',        commits:  9640, fill: 'rgba(0,210,200,0.10)', hoverFill: 'rgba(0,210,200,0.36)' },
+  me: { label: 'MIDDLE EAST',   commits: 11280, fill: 'rgba(0,230,210,0.12)', hoverFill: 'rgba(0,230,210,0.38)' },
+  as: { label: 'ASIA',          commits: 54880, fill: 'rgba(0,140,255,0.13)', hoverFill: 'rgba(0,140,255,0.38)' },
+  oc: { label: 'OCEANIA',       commits:  8750, fill: 'rgba(0,220,200,0.12)', hoverFill: 'rgba(0,220,200,0.38)' },
+}
+
+function getRegionId(name: string): string {
+  const n = name.toLowerCase()
+  if (/united states|canada|mexico|guatemala|belize|honduras|el salvador|nicaragua|costa rica|panama|cuba|jamaica|haiti|dominican|trinidad|bahamas|barbados|grenada|saint kitts|saint lucia|saint vincent|antigua|dominica|puerto rico/.test(n)) return 'na'
+  if (/brazil|argentina|chile|peru|colombia|venezuela|ecuador|bolivia|paraguay|uruguay|guyana|suriname|french guiana/.test(n)) return 'sa'
+  if (/germany|france|united kingdom|italy|spain|portugal|netherlands|belgium|switzerland|austria|sweden|norway|denmark|finland|poland|czech|slovakia|hungary|romania|bulgaria|greece|croatia|slovenia|serbia|bosnia|montenegro|macedonia|albania|moldova|ukraine|belarus|estonia|latvia|lithuania|ireland|iceland|luxembourg|malta|cyprus|monaco|liechtenstein|andorra|san marino|russia/.test(n)) return 'eu'
+  if (/saudi arabia|iran|iraq|turkey|syria|jordan|lebanon|israel|kuwait|bahrain|qatar|united arab emirates|oman|yemen|palestine|georgia|armenia|azerbaijan|afghanistan/.test(n)) return 'me'
+  if (/nigeria|egypt|south africa|kenya|ethiopia|tanzania|uganda|ghana|cameroon|ivoire|mozambique|angola|zambia|zimbabwe|senegal|sudan|morocco|algeria|tunisia|libya|madagascar|namibia|botswana|rwanda|mali|niger|chad|guinea|benin|togo|sierra leone|liberia|burkina|central african|congo|gabon|equatorial|eritrea|djibouti|somalia|malawi|lesotho|eswatini|swaziland|gambia|comoros|cape verde|sahara|mauritius|seychelles|somaliland/.test(n)) return 'af'
+  if (/australia|new zealand|papua|fiji|solomon|vanuatu|samoa|tonga|kiribati|micronesia|palau|marshall|nauru|tuvalu/.test(n)) return 'oc'
+  return 'as'
+}
 
 type ContribFilter = 'WEEK' | 'MONTH' | 'YEAR'
 
@@ -218,6 +240,115 @@ function QualityCard() {
   )
 }
 
+/* ── WORLD MAP WIDGET ── */
+function WorldMapWidget() {
+  const [hoveredRegionId, setHoveredRegionId] = useState<string | null>(null)
+  const [hoveredCountry, setHoveredCountry] = useState<string>('')
+  const [tip, setTip] = useState({ x: 0, y: 0 })
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const total = Object.values(REGION_DATA).reduce((s, r) => s + r.commits, 0)
+  const activeRegion = hoveredRegionId ? REGION_DATA[hoveredRegionId] : null
+
+  function handleMouseMove(e: React.MouseEvent) {
+    if (!containerRef.current) return
+    const rect = containerRef.current.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const y = e.clientY - rect.top
+    setTip({ x: x + 12 > rect.width - 140 ? x - 148 : x + 12, y: Math.max(4, y - 52) })
+  }
+
+  return (
+    <div
+      ref={containerRef}
+      style={{ ...S.chartCard, position: 'relative', padding: '8px 9px', gap: 4 }}
+      onMouseMove={handleMouseMove}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+        <div style={S.chartLabel}>GLOBAL COMMIT DISTRIBUTION</div>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'rgba(0,229,255,0.35)', letterSpacing: '0.08em' }}>
+          {fmt(total)} TOTAL
+        </span>
+      </div>
+
+      {/* Map */}
+      <div style={{ flex: 1, minHeight: 0, position: 'relative', overflow: 'hidden' }}>
+        <ComposableMap
+          projectionConfig={{ scale: 148, center: [10, 5] }}
+          style={{ width: '100%', height: '100%' }}
+        >
+          {/* Ocean background */}
+          <Sphere id="rsm-sphere" fill="rgba(0,15,30,0.6)" stroke="rgba(0,229,255,0.08)" strokeWidth={0.5} />
+          {/* Graticule grid */}
+          <Graticule stroke="rgba(0,229,255,0.06)" strokeWidth={0.4} />
+
+          <Geographies geography="/countries-110m.json">
+            {({ geographies }) =>
+              geographies.map((geo) => {
+                const name = geo.properties.name || ''
+                const rid = getRegionId(name)
+                const rd = REGION_DATA[rid]
+                const isHovered = hoveredRegionId === rid
+                return (
+                  <Geography
+                    key={geo.rsmKey}
+                    geography={geo}
+                    fill={isHovered ? rd.hoverFill : rd.fill}
+                    stroke={isHovered ? 'rgba(0,229,255,0.7)' : 'rgba(0,229,255,0.18)'}
+                    strokeWidth={isHovered ? 0.6 : 0.3}
+                    style={{ default: { outline: 'none' }, hover: { outline: 'none' }, pressed: { outline: 'none' } }}
+                    onMouseEnter={() => { setHoveredRegionId(rid); setHoveredCountry(name) }}
+                    onMouseLeave={() => { setHoveredRegionId(null); setHoveredCountry('') }}
+                  />
+                )
+              })
+            }
+          </Geographies>
+        </ComposableMap>
+
+        {/* Hover tooltip */}
+        {activeRegion && (
+          <div style={{
+            position: 'absolute', top: tip.y, left: tip.x, pointerEvents: 'none', zIndex: 20,
+            background: 'rgba(5,8,15,0.97)', border: '1px solid rgba(0,229,255,0.35)',
+            borderRadius: 5, padding: '6px 11px', boxShadow: '0 0 16px rgba(0,229,255,0.18)',
+            minWidth: 130,
+          }}>
+            {hoveredCountry && (
+              <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: '#7d8590', marginBottom: 2, letterSpacing: '0.06em' }}>
+                {hoveredCountry.toUpperCase()}
+              </div>
+            )}
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#00E5FF', marginBottom: 3, letterSpacing: '0.08em' }}>
+              {activeRegion.label}
+            </div>
+            <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 13, color: '#e6edf3', fontWeight: 700 }}>
+              {fmt(activeRegion.commits)}
+            </div>
+            <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: '#7d8590', marginTop: 2 }}>
+              commits · {((activeRegion.commits / total) * 100).toFixed(1)}% global
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div style={{ flexShrink: 0, display: 'flex', flexWrap: 'wrap', gap: '2px 8px' }}>
+        {Object.entries(REGION_DATA).map(([rid, rd]) => (
+          <div key={rid} style={{ display: 'flex', alignItems: 'center', gap: 3, cursor: 'default' }}
+            onMouseEnter={() => setHoveredRegionId(rid)} onMouseLeave={() => setHoveredRegionId(null)}>
+            <div style={{ width: 6, height: 6, borderRadius: 1, background: hoveredRegionId === rid ? '#00E5FF' : rd.fill.replace(/[\d.]+\)$/, '0.6)'), border: '1px solid rgba(0,229,255,0.3)', transition: 'background 0.15s' }} />
+            <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 6, color: hoveredRegionId === rid ? '#00E5FF' : '#7d8590', letterSpacing: '0.04em', transition: 'color 0.15s' }}>
+              {rd.label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 interface YTVideo { id: string; title: string; thumbnail: string; date: string }
 
 /* ── MAIN ── */
@@ -230,6 +361,7 @@ export default function Dashboard() {
   const [contribFilter, setContribFilter] = useState<ContribFilter>('WEEK')
   const [videos, setVideos] = useState<YTVideo[]>([])
   const [activeVideoId, setActiveVideoId] = useState<string>('')
+  const [activeModule, setActiveModule] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/github/user')
@@ -417,7 +549,7 @@ export default function Dashboard() {
                 {activeVideoId ? (
                   <iframe
                     key={`yt-${activeVideoId}`}
-                    src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=0&modestbranding=1&rel=0&origin=${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}`}
+                    src={`https://www.youtube.com/embed/${activeVideoId}?autoplay=1&modestbranding=1&rel=0&origin=${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}`}
                     style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
@@ -543,49 +675,99 @@ export default function Dashboard() {
             </div>{/* end charts inner grid */}
           </div>{/* end top row */}
 
-          {/* BOTTOM: Feature buttons — 6 equal columns, no scroll */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', gap: 5, overflow: 'hidden' }}>
-            <div style={S.secTitle}><span style={{ color: '#00E5FF' }}>⬡</span> INTELLIGENCE MODULES</div>
-            <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 8, overflow: 'hidden' }}>
-              {FEATURE_GROUPS.map((group) => (
-                <div key={group.label} style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0 }}>
-                  <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, fontWeight: 700, letterSpacing: '0.08em', color: group.color, flexShrink: 0, paddingBottom: 4, borderBottom: `1px solid ${group.color}33`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {group.label}
+          {/* BOTTOM: Intelligence modules (half-size) + World map */}
+          <div style={{ flex: 0.85, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 290px', gap: 6, overflow: 'hidden' }}>
+
+            {/* Left: horizontal navbar + modules grid */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minHeight: 0, overflow: 'hidden' }}>
+              {/* Horizontal navbar */}
+              <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', background: 'rgba(13,17,23,0.8)', border: '1px solid rgba(0,229,255,0.1)', borderRadius: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+                <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, color: 'rgba(0,229,255,0.4)', letterSpacing: '0.1em', flexShrink: 0, marginRight: 4 }}>⬡</span>
+                <div style={{ width: 1, height: 16, background: 'rgba(0,229,255,0.1)', flexShrink: 0, marginRight: 2 }} />
+                {FEATURE_GROUPS.map((g) => (
+                  <button
+                    key={g.label}
+                    onClick={() => setActiveModule(activeModule === g.label ? null : g.label)}
+                    style={{
+                      padding: '3px 10px', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+                      fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: '0.04em',
+                      background: activeModule === g.label ? `${g.color}18` : 'transparent',
+                      border: `1px solid ${activeModule === g.label ? g.color + '55' : 'rgba(255,255,255,0.05)'}`,
+                      color: activeModule === g.label ? g.color : '#7d8590',
+                      transition: 'all 0.15s', whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (activeModule !== g.label) {
+                        const el = e.currentTarget as HTMLButtonElement
+                        el.style.color = g.color; el.style.borderColor = `${g.color}33`
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (activeModule !== g.label) {
+                        const el = e.currentTarget as HTMLButtonElement
+                        el.style.color = '#7d8590'; el.style.borderColor = 'rgba(255,255,255,0.05)'
+                      }
+                    }}
+                  >
+                    {g.label}
+                  </button>
+                ))}
+                {activeModule && (
+                  <button
+                    onClick={() => setActiveModule(null)}
+                    style={{ padding: '3px 8px', borderRadius: 4, cursor: 'pointer', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, background: 'transparent', border: '1px solid rgba(255,68,102,0.2)', color: '#ff4466', marginLeft: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}
+                  >✕ SHOW ALL</button>
+                )}
+              </div>
+
+              {/* Modules grid */}
+              <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 5, overflow: 'hidden' }}>
+                {FEATURE_GROUPS.map((group) => (
+                  <div
+                    key={group.label}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 3, minWidth: 0, opacity: activeModule && activeModule !== group.label ? 0.25 : 1, transition: 'opacity 0.2s' }}
+                  >
+                    <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 8, fontWeight: 700, letterSpacing: '0.07em', color: group.color, flexShrink: 0, paddingBottom: 3, borderBottom: `1px solid ${group.color}33`, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {group.label}
+                    </div>
+                    {group.items.map((item) => (
+                      <button
+                        key={item}
+                        style={{
+                          width: '100%', flex: 1, minHeight: 0,
+                          background: 'rgba(13,17,23,0.8)',
+                          border: `1px solid ${group.color}22`,
+                          borderRadius: 4, cursor: 'pointer',
+                          fontFamily: "'JetBrains Mono',monospace",
+                          fontSize: 9, color: '#c9d1d9',
+                          letterSpacing: '0.02em',
+                          textAlign: 'left', padding: '0 6px',
+                          transition: 'all 0.15s',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}
+                        onMouseEnter={(e) => {
+                          const el = e.currentTarget as HTMLButtonElement
+                          el.style.background = `${group.color}12`
+                          el.style.borderColor = `${group.color}55`
+                          el.style.color = group.color
+                        }}
+                        onMouseLeave={(e) => {
+                          const el = e.currentTarget as HTMLButtonElement
+                          el.style.background = 'rgba(13,17,23,0.8)'
+                          el.style.borderColor = `${group.color}22`
+                          el.style.color = '#c9d1d9'
+                        }}
+                      >
+                        {item}
+                      </button>
+                    ))}
                   </div>
-                  {group.items.map((item) => (
-                    <button
-                      key={item}
-                      style={{
-                        width: '100%', flex: 1, minHeight: 0,
-                        background: 'rgba(13,17,23,0.8)',
-                        border: `1px solid ${group.color}22`,
-                        borderRadius: 5, cursor: 'pointer',
-                        fontFamily: "'JetBrains Mono',monospace",
-                        fontSize: 10, color: '#c9d1d9',
-                        letterSpacing: '0.02em',
-                        textAlign: 'left', padding: '0 8px',
-                        transition: 'all 0.15s',
-                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                      }}
-                      onMouseEnter={(e) => {
-                        const el = e.currentTarget as HTMLButtonElement
-                        el.style.background = `${group.color}12`
-                        el.style.borderColor = `${group.color}55`
-                        el.style.color = group.color
-                      }}
-                      onMouseLeave={(e) => {
-                        const el = e.currentTarget as HTMLButtonElement
-                        el.style.background = 'rgba(13,17,23,0.8)'
-                        el.style.borderColor = `${group.color}22`
-                        el.style.color = '#c9d1d9'
-                      }}
-                    >
-                      {item}
-                    </button>
-                  ))}
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
+
+            {/* Right: World map widget */}
+            <WorldMapWidget />
           </div>
         </div>
 
