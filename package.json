@@ -43,6 +43,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
+    "cytoscape": "^3.33.1",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
     "html-to-image": "^1.11.13",
@@ -61,12 +62,14 @@
     "recharts": "2.15.0",
     "sonner": "^1.7.1",
     "tailwind-merge": "^3.3.1",
+    "ts-morph": "^27.0.2",
     "vaul": "^1.1.2",
     "world-atlas": "^2.0.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",
+    "@types/cytoscape": "^3.31.0",
     "@types/node": "^22",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
