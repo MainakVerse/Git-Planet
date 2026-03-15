@@ -3,8 +3,9 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Git Planet — GitHub Intelligence Platform',
-  description: 'Turn GitHub repositories into intelligence. Analyze architecture, dependencies, and developer ecosystems instantly.',
+  title: 'Git Planet - GitHub Intelligence Platform',
+  description:
+    'Turn GitHub repositories into intelligence. Analyze architecture, dependencies, and developer ecosystems instantly.',
   icons: {
     icon: '/logo.png',
     apple: '/logo.png',
