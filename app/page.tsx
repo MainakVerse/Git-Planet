@@ -1389,10 +1389,10 @@ export default function Home() {
 
       {/* NAV */}
       <nav>
-        <div className="nav-logo">
+        <a href="/" className="nav-logo">
           <img src="/logo.png" className="nav-logo-icon" alt="Git Planet logo" />
           GIT PLANET
-        </div>
+        </a>
         <ul className="nav-links">
           <li><a href="#capabilities">Capabilities</a></li>
           <li><a href="#how">How It Works</a></li>

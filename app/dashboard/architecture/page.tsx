@@ -34,7 +34,7 @@ function MermaidDiagram({ definition }: { definition: string }) {
       mermaid.initialize({
         startOnLoad: false,
         theme: 'dark',
-        flowchart: { curve: 'basis', nodeSpacing: 70, rankSpacing: 90, padding: 20, htmlLabels: true },
+        flowchart: { curve: 'basis', nodeSpacing: 70, rankSpacing: 90, padding: 20, htmlLabels: false },
         themeVariables: {
           darkMode: true,
           background: 'transparent',
@@ -93,6 +93,8 @@ export default function ArchitecturePage() {
   const [mermaidDef, setMermaidDef] = useState<string>('')
   const [meta, setMeta] = useState<ArchMeta | null>(null)
   const [layers, setLayers] = useState<{ label: string; color: string; count: number }[]>([])
+  const [downloading, setDownloading] = useState<'png' | 'pdf' | null>(null)
+  const diagramRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/github/user')
@@ -131,6 +133,96 @@ export default function ArchitecturePage() {
     }
   }
 
+  async function captureFullDiagram(): Promise<string> {
+    const svgEl = diagramRef.current?.querySelector('svg')
+    if (!svgEl) throw new Error('No diagram SVG found')
+
+    // Serialize the live SVG — with htmlLabels:false Mermaid uses native SVG text
+    // so XMLSerializer captures everything correctly, unlike foreignObject-based SVGs
+    const clone = svgEl.cloneNode(true) as SVGElement
+
+    // Read the SVG's intrinsic dimensions (Mermaid always sets these)
+    let w = parseFloat(clone.getAttribute('width') || '0')
+    let h = parseFloat(clone.getAttribute('height') || '0')
+    if (!w || !h) {
+      const vb = (clone.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number)
+      if (vb.length >= 4) { w = vb[2]; h = vb[3] }
+    }
+    w = w || 1200
+    h = h || 800
+
+    // Force explicit dimensions so the browser renders the full SVG, not a clipped view
+    clone.setAttribute('width', String(w))
+    clone.setAttribute('height', String(h))
+    clone.style.maxWidth = 'none'
+
+    const pad = 48
+    const scale = 2
+    const canvasW = (w + pad * 2) * scale
+    const canvasH = (h + pad * 2) * scale
+
+    // Strip any @import / url() rules referencing external origins — those taint the canvas
+    clone.querySelectorAll('style').forEach((s) => {
+      s.textContent = (s.textContent || '').replace(/@import[^;]+;/g, '').replace(/url\(['"]?https?:\/\/[^)'"]+['"]?\)/g, '')
+    })
+
+    const svgStr = new XMLSerializer().serializeToString(clone)
+    // Use a data: URL — unlike Blob URLs, data: URLs are treated as same-origin
+    // and will not taint the canvas even when the SVG had cross-origin font refs
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgStr)}`
+
+    const canvas = document.createElement('canvas')
+    canvas.width = canvasW
+    canvas.height = canvasH
+    const ctx = canvas.getContext('2d')!
+
+    ctx.fillStyle = '#0d1117'
+    ctx.fillRect(0, 0, canvasW, canvasH)
+
+    await new Promise<void>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        ctx.drawImage(img, pad * scale, pad * scale, w * scale, h * scale)
+        resolve()
+      }
+      img.onerror = () => reject(new Error('SVG failed to render'))
+      img.src = url
+    })
+
+    return canvas.toDataURL('image/png')
+  }
+
+  async function handleDownloadPng() {
+    setDownloading('png')
+    try {
+      const dataUrl = await captureFullDiagram()
+      const a = document.createElement('a')
+      a.download = `${selectedRepo?.name ?? 'architecture'}-diagram.png`
+      a.href = dataUrl
+      a.click()
+    } finally {
+      setDownloading(null)
+    }
+  }
+
+  async function handleDownloadPdf() {
+    setDownloading('pdf')
+    try {
+      const dataUrl = await captureFullDiagram()
+      const { default: jsPDF } = await import('jspdf')
+      const img = new Image()
+      img.src = dataUrl
+      await new Promise<void>((resolve) => { img.onload = () => resolve() })
+      const w = img.naturalWidth
+      const h = img.naturalHeight
+      const pdf = new jsPDF({ orientation: w >= h ? 'landscape' : 'portrait', unit: 'px', format: [w, h], hotfixes: ['px_scaling'] })
+      pdf.addImage(dataUrl, 'PNG', 0, 0, w, h)
+      pdf.save(`${selectedRepo?.name ?? 'architecture'}-diagram.pdf`)
+    } finally {
+      setDownloading(null)
+    }
+  }
+
   if (loading) return (
     <div style={{ height: '100vh', background: '#050505', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12 }}>
       <div style={{ width: 36, height: 36, borderRadius: '50%', border: '2px solid rgba(0,229,255,0.15)', borderTopColor: '#00E5FF', animation: 'spin 0.8s linear infinite' }} />
@@ -158,6 +250,29 @@ export default function ArchitecturePage() {
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 9, color: 'rgba(0,229,255,0.35)' }}>/</span>
         <span style={{ fontFamily: "'Orbitron',monospace", fontSize: 10, fontWeight: 600, letterSpacing: '0.1em', color: '#e6edf3' }}>AUTO ARCHITECTURE DIAGRAM</span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
+          {mermaidDef && (
+            <>
+              <button
+                onClick={handleDownloadPng}
+                disabled={downloading !== null}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: downloading === 'png' ? 'rgba(0,229,255,0.1)' : 'transparent', border: '1px solid rgba(0,229,255,0.2)', borderRadius: 5, color: downloading === 'png' ? 'rgba(0,229,255,0.5)' : '#00E5FF', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: '0.08em', cursor: downloading !== null ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}
+                onMouseEnter={(e) => { if (!downloading) (e.currentTarget as HTMLElement).style.background = 'rgba(0,229,255,0.08)' }}
+                onMouseLeave={(e) => { if (!downloading) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                {downloading === 'png' ? '...' : '↓'} PNG
+              </button>
+              <button
+                onClick={handleDownloadPdf}
+                disabled={downloading !== null}
+                style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', background: downloading === 'pdf' ? 'rgba(123,97,255,0.12)' : 'transparent', border: '1px solid rgba(123,97,255,0.25)', borderRadius: 5, color: downloading === 'pdf' ? 'rgba(123,97,255,0.5)' : '#7B61FF', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, letterSpacing: '0.08em', cursor: downloading !== null ? 'not-allowed' : 'pointer', transition: 'all 0.15s' }}
+                onMouseEnter={(e) => { if (!downloading) (e.currentTarget as HTMLElement).style.background = 'rgba(123,97,255,0.1)' }}
+                onMouseLeave={(e) => { if (!downloading) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                {downloading === 'pdf' ? '...' : '↓'} PDF
+              </button>
+              <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.1)' }} />
+            </>
+          )}
           <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, color: '#e6edf3', letterSpacing: '0.06em' }}>{displayName}</div>
           <img src={user.avatar_url} style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid rgba(0,229,255,0.3)', objectFit: 'cover' }} alt="" />
         </div>
@@ -266,7 +381,7 @@ export default function ArchitecturePage() {
 
         {/* RIGHT: Diagram */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 7, overflow: 'hidden', minHeight: 0 }}>
-          <div style={{ flex: 1, minHeight: 0, background: 'rgba(13,17,23,0.8)', border: '1px solid rgba(0,229,255,0.1)', borderRadius: 9, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div ref={diagramRef} style={{ flex: 1, minHeight: 0, background: 'rgba(13,17,23,0.8)', border: '1px solid rgba(0,229,255,0.1)', borderRadius: 9, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
 
             {/* Header */}
             <div style={{ flexShrink: 0, padding: '9px 14px', borderBottom: '1px solid rgba(0,229,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
