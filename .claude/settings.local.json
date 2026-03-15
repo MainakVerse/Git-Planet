@@ -4,7 +4,10 @@
       "Bash(npx tsc:*)",
       "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/api/github/dependency-graph\")",
       "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/dashboard/dependency-graph\")",
-      "Bash(pnpm exec:*)"
+      "Bash(pnpm exec:*)",
+      "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/api/github/code-quality\")",
+      "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/dashboard/code-quality\")",
+      "Bash(node -e \":*)"
     ]
   }
 }

@@ -142,7 +142,7 @@ function computeInsights(nodes: DepNode[], internalEdges: DepEdge[]): DepInsight
     .slice(0, 5)
     .map(n => ({ id: n.id, label: n.label, inDegree: n.inDegree }))
 
-  // Circular dependency detection via DFS
+  // Code Quality Analyser via DFS
   const adj = new Map<string, string[]>()
   const nodeIds = new Set<string>()
   for (const { from, to } of internalEdges) {
