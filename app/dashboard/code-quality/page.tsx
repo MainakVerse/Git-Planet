@@ -303,7 +303,6 @@ export default function CodeQualityPage() {
         body: JSON.stringify({
           owner: user.login, repo: selectedRepo.name,
           testFilePath: gen.suggestedPath, testCode: gen.testCode,
-          branch: 'main',
         }),
       })
       const data = await res.json()

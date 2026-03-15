@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Invalid session' }, { status: 401 })
 
   const accessToken = session.access_token as string
-  const { owner, repo, testFilePath, testCode, branch = 'main', commitMessage } = await req.json()
+  const { owner, repo, testFilePath, testCode, branch, commitMessage } = await req.json()
   if (!owner || !repo || !testFilePath || !testCode) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   }
@@ -32,6 +32,15 @@ export async function POST(req: NextRequest) {
     Accept: 'application/vnd.github+json',
     'X-GitHub-Api-Version': '2022-11-28',
     'Content-Type': 'application/json',
+  }
+
+  // Resolve branch: use the provided value, or fall back to the repo's actual default branch
+  let targetBranch = branch
+  if (!targetBranch) {
+    const repoRes = await ghFetch(`https://api.github.com/repos/${owner}/${repo}`, 'GET', H)
+    if (!repoRes.ok) return NextResponse.json({ error: 'Repository not found or access denied' }, { status: 404 })
+    const repoData = await repoRes.json()
+    targetBranch = repoData.default_branch || 'main'
   }
 
   const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${encodeURIComponent(testFilePath)}`
@@ -49,7 +58,7 @@ export async function POST(req: NextRequest) {
   const content = Buffer.from(testCode, 'utf-8').toString('base64')
   const message = commitMessage || `test: add tests for ${testFilePath.split('/').pop()}`
 
-  const body: Record<string, string> = { message, content, branch }
+  const body: Record<string, string> = { message, content, branch: targetBranch }
   if (existingSha) body.sha = existingSha
 
   const res = await ghFetch(apiUrl, 'PUT', H, body)
@@ -60,7 +69,7 @@ export async function POST(req: NextRequest) {
   }
 
   const data = await res.json()
-  const commitUrl = data.commit?.html_url ?? `https://github.com/${owner}/${repo}/blob/${branch}/${testFilePath}`
+  const commitUrl = data.commit?.html_url ?? `https://github.com/${owner}/${repo}/blob/${targetBranch}/${testFilePath}`
 
   return NextResponse.json({ success: true, url: commitUrl, updated: !!existingSha })
 }
