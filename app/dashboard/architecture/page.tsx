@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 interface GithubUser { login: string; name: string | null; avatar_url: string }
@@ -15,6 +15,173 @@ interface ArchMeta {
 
 const LAYER_COLORS = ['#00E5FF', '#7B61FF', '#00ff88', '#ff9500']
 const LAYER_LABELS = ['ENTRY / UI', 'API / GATEWAY', 'SERVICES / CORE', 'DATA / INFRA']
+
+// ── Pan / Zoom wrapper for SVG diagrams ───────────────────────────────────────
+
+function ZoomPanDiagram({ svg, accentColor = '#00E5FF' }: { svg: string; accentColor?: string }) {
+  const outerRef = useRef<HTMLDivElement>(null)
+  const [zoom, setZoom] = useState(1)
+  const [pan, setPan] = useState({ x: 0, y: 0 })
+  const zoomRef = useRef(1)
+  const panRef = useRef({ x: 0, y: 0 })
+  const isDragging = useRef(false)
+  const dragStart = useRef({ x: 0, y: 0, px: 0, py: 0 })
+
+  // Auto-fit on first render
+  useEffect(() => {
+    const el = outerRef.current
+    if (!el || !svg) return
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(svg, 'image/svg+xml')
+    const svgEl = doc.querySelector('svg')
+    if (!svgEl) return
+    let svgW = parseFloat(svgEl.getAttribute('width') || '0')
+    let svgH = parseFloat(svgEl.getAttribute('height') || '0')
+    if (!svgW || !svgH) {
+      const vb = (svgEl.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number)
+      if (vb.length >= 4) { svgW = vb[2]; svgH = vb[3] }
+    }
+    const cw = el.clientWidth
+    const ch = el.clientHeight
+    if (svgW && svgH && cw && ch) {
+      const scale = Math.min(cw / svgW, ch / svgH, 1) * 0.92
+      const x = (cw - svgW * scale) / 2
+      const y = (ch - svgH * scale) / 2
+      zoomRef.current = scale
+      panRef.current = { x, y }
+      setZoom(scale)
+      setPan({ x, y })
+    }
+  }, [svg])
+
+  // Wheel zoom — registered with passive:false so preventDefault works
+  useEffect(() => {
+    const el = outerRef.current
+    if (!el) return
+    const handler = (e: WheelEvent) => {
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      const mx = e.clientX - rect.left
+      const my = e.clientY - rect.top
+      const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12
+      const z = zoomRef.current
+      const p = panRef.current
+      const nz = Math.min(Math.max(z * factor, 0.08), 10)
+      const np = { x: mx - (mx - p.x) * (nz / z), y: my - (my - p.y) * (nz / z) }
+      zoomRef.current = nz
+      panRef.current = np
+      setZoom(nz)
+      setPan(np)
+    }
+    el.addEventListener('wheel', handler, { passive: false })
+    return () => el.removeEventListener('wheel', handler)
+  }, [])
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    // Only primary button
+    if (e.button !== 0) return
+    isDragging.current = true
+    dragStart.current = { x: e.clientX, y: e.clientY, px: panRef.current.x, py: panRef.current.y }
+    if (outerRef.current) outerRef.current.style.cursor = 'grabbing'
+  }, [])
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isDragging.current) return
+    const dx = e.clientX - dragStart.current.x
+    const dy = e.clientY - dragStart.current.y
+    const np = { x: dragStart.current.px + dx, y: dragStart.current.py + dy }
+    panRef.current = np
+    setPan(np)
+  }, [])
+
+  const handleMouseUp = useCallback(() => {
+    isDragging.current = false
+    if (outerRef.current) outerRef.current.style.cursor = 'grab'
+  }, [])
+
+  function zoomBy(factor: number) {
+    const el = outerRef.current
+    const z = zoomRef.current
+    const p = panRef.current
+    const nz = Math.min(Math.max(z * factor, 0.08), 10)
+    // Zoom relative to center
+    const cx = (el?.clientWidth ?? 600) / 2
+    const cy = (el?.clientHeight ?? 400) / 2
+    const np = { x: cx - (cx - p.x) * (nz / z), y: cy - (cy - p.y) * (nz / z) }
+    zoomRef.current = nz
+    panRef.current = np
+    setZoom(nz)
+    setPan(np)
+  }
+
+  function fitToView() {
+    const el = outerRef.current
+    if (!el || !svg) return
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(svg, 'image/svg+xml')
+    const svgEl = doc.querySelector('svg')
+    if (!svgEl) return
+    let svgW = parseFloat(svgEl.getAttribute('width') || '0')
+    let svgH = parseFloat(svgEl.getAttribute('height') || '0')
+    if (!svgW || !svgH) {
+      const vb = (svgEl.getAttribute('viewBox') || '').split(/[\s,]+/).map(Number)
+      if (vb.length >= 4) { svgW = vb[2]; svgH = vb[3] }
+    }
+    const cw = el.clientWidth
+    const ch = el.clientHeight
+    if (svgW && svgH) {
+      const scale = Math.min(cw / svgW, ch / svgH, 1) * 0.92
+      const np = { x: (cw - svgW * scale) / 2, y: (ch - svgH * scale) / 2 }
+      zoomRef.current = scale
+      panRef.current = np
+      setZoom(scale)
+      setPan(np)
+    }
+  }
+
+  return (
+    <div
+      ref={outerRef}
+      style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden', cursor: 'grab', userSelect: 'none' }}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Diagram layer */}
+      <div
+        style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`, transformOrigin: '0 0', pointerEvents: 'none' }}
+        dangerouslySetInnerHTML={{ __html: svg }}
+      />
+
+      {/* Zoom controls */}
+      <div style={{ position: 'absolute', bottom: 14, right: 14, display: 'flex', flexDirection: 'column', gap: 5, zIndex: 10 }}>
+        {([['⌖', fitToView], ['+', () => zoomBy(1.25)], ['−', () => zoomBy(1 / 1.25)]] as [string, () => void][]).map(([icon, fn]) => (
+          <button
+            key={icon}
+            onClick={e => { e.stopPropagation(); fn() }}
+            onMouseDown={e => e.stopPropagation()}
+            style={{ width: 28, height: 28, borderRadius: 5, background: 'rgba(13,17,23,0.9)', border: `1px solid ${accentColor}22`, color: accentColor, fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'monospace', transition: 'border-color 0.15s, background 0.15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${accentColor}12`; (e.currentTarget as HTMLElement).style.borderColor = `${accentColor}55` }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(13,17,23,0.9)'; (e.currentTarget as HTMLElement).style.borderColor = `${accentColor}22` }}
+          >
+            {icon}
+          </button>
+        ))}
+      </div>
+
+      {/* Zoom percentage */}
+      <div style={{ position: 'absolute', bottom: 14, left: 14, fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: `${accentColor}55`, letterSpacing: '0.08em', zIndex: 10, pointerEvents: 'none' }}>
+        {Math.round(zoom * 100)}%
+      </div>
+
+      {/* Hint */}
+      <div style={{ position: 'absolute', top: 10, right: 14, fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'rgba(125,133,144,0.3)', letterSpacing: '0.06em', zIndex: 10, pointerEvents: 'none' }}>
+        SCROLL TO ZOOM · DRAG TO PAN
+      </div>
+    </div>
+  )
+}
 
 // ── Mermaid diagram component ──────────────────────────────────────────────────
 
@@ -73,12 +240,7 @@ function MermaidDiagram({ definition }: { definition: string }) {
     </div>
   )
 
-  return (
-    <div
-      dangerouslySetInnerHTML={{ __html: svg }}
-      style={{ width: '100%', height: '100%', overflow: 'auto' }}
-    />
-  )
+  return <ZoomPanDiagram svg={svg} />
 }
 
 // ── Main page ──────────────────────────────────────────────────────────────────
@@ -399,9 +561,9 @@ export default function ArchitecturePage() {
             </div>
 
             {/* Diagram body */}
-            <div style={{ flex: 1, minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '8px' }}>
+            <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
               {generating ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16 }}>
                   <div style={{ position: 'relative', width: 56, height: 56 }}>
                     {[0, 1, 2].map((i) => (
                       <div key={i} style={{ position: 'absolute', inset: i * 8, borderRadius: '50%', border: `1.5px solid rgba(0,229,255,${0.5 - i * 0.12})`, borderTopColor: i === 0 ? '#00E5FF' : 'transparent', animation: `spin ${0.7 + i * 0.3}s linear infinite${i % 2 === 1 ? ' reverse' : ''}` }} />
@@ -415,7 +577,7 @@ export default function ArchitecturePage() {
               ) : mermaidDef ? (
                 <MermaidDiagram definition={mermaidDef} />
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, opacity: 0.45 }}>
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 14, opacity: 0.45 }}>
                   <div style={{ position: 'relative', width: 80, height: 80 }}>
                     {[36, 25, 14].map((r, i) => (
                       <div key={i} style={{ position: 'absolute', top: '50%', left: '50%', width: r * 2, height: r * 2, transform: 'translate(-50%,-50%)', borderRadius: '50%', border: `1px solid rgba(0,229,255,${0.12 + i * 0.07})` }} />
