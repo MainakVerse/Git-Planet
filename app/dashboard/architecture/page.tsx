@@ -597,7 +597,7 @@ export default function ArchitecturePage() {
 
       {/* FOOTER */}
       <footer style={{ height: 24, flexShrink: 0, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderTop: '1px solid rgba(0,229,255,0.06)', background: 'rgba(5,5,5,0.8)' }}>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, letterSpacing: '0.14em', color: 'rgba(0,229,255,0.3)' }}>GIT PLANET | AUTO ARCHITECTURE DIAGRAM | CODE INTELLIGENCE</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, letterSpacing: '0.14em', color: 'rgba(0,229,255,0.3)' }}>GIT PLANET | AUTO ARCHITECTURE DIAGRAM | REPOSITORY PROFILER</span>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'rgba(0,229,255,0.25)' }}>@{user.login}</span>
       </footer>
 

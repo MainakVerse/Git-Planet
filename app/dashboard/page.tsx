@@ -31,7 +31,7 @@ const LANG_COLORS: Record<string, string> = {
 
 const FEATURE_GROUPS = [
   {
-    label: 'CODE INTELLIGENCE',
+    label: 'REPOSITORY PROFILER',
     color: '#00E5FF',
     items: [
       'Auto Architecture Diagram', 'Dependency Grapher', 'Code Quality Analyser',
@@ -739,6 +739,7 @@ export default function Dashboard() {
                           else if (item === 'Code Quality Analyser') router.push('/dashboard/code-quality')
                           else if (item === 'Dead Code Extractor') router.push('/dashboard/dead-code')
                           else if (item === 'Complexity Scoring') router.push('/dashboard/complexity')
+                          else if (item === 'Wiki Generator') router.push('/dashboard/wiki-generator')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,
@@ -782,7 +783,7 @@ export default function Dashboard() {
 
       {/* FOOTER */}
       <footer style={{ height: 24, flexShrink: 0, position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', borderTop: '1px solid rgba(0,229,255,0.06)', background: 'rgba(5,5,5,0.8)' }}>
-        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, letterSpacing: '0.14em', color: 'rgba(0,229,255,0.3)' }}>GIT PLANET | GITHUB INTELLIGENCE PLATFORM | EST. 2024</span>
+        <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, letterSpacing: '0.14em', color: 'rgba(0,229,255,0.3)' }}>GIT PLANET | BUILT BY MAINAK CHAUDHURI | EST. 2026</span>
         <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 7, color: 'rgba(0,229,255,0.25)' }}>SESSION ACTIVE | @{user.login}</span>
       </footer>
     </div>
