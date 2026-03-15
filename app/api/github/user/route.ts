@@ -27,7 +27,7 @@ export async function GET() {
 
   const [userRes, reposRes] = await Promise.all([
     fetch('https://api.github.com/user', { headers, cache: 'no-store' }),
-    fetch('https://api.github.com/user/repos?sort=updated&per_page=6&affiliation=owner', {
+    fetch('https://api.github.com/user/repos?sort=updated&per_page=20&affiliation=owner', {
       headers,
       cache: 'no-store',
     }),
