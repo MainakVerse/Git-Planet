@@ -735,6 +735,7 @@ export default function Dashboard() {
                         key={item}
                         onClick={() => {
                           if (item === 'Auto Architecture Diagram') router.push('/dashboard/architecture')
+                          else if (item === 'Dependency Graph Visualizer') router.push('/dashboard/dependency-graph')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,

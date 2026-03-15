@@ -1,7 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/api/github/dependency-graph\")",
+      "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/dashboard/dependency-graph\")"
     ]
   }
 }
