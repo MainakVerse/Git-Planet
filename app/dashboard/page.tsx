@@ -35,7 +35,7 @@ const FEATURE_GROUPS = [
     color: '#00E5FF',
     items: [
       'Auto Architecture Diagram', 'Dependency Grapher', 'Code Quality Analyser',
-      'Dead Code Extractor', 'Complexity Scoring', 'Wiki Generator',
+      'Dead Code Extractor', 'Repo Readme Maker', 'Wiki Generator',
     ],
   },
   {
@@ -738,7 +738,7 @@ export default function Dashboard() {
                           else if (item === 'Dependency Grapher') router.push('/dashboard/dependency-graph')
                           else if (item === 'Code Quality Analyser') router.push('/dashboard/code-quality')
                           else if (item === 'Dead Code Extractor') router.push('/dashboard/dead-code')
-                          else if (item === 'Complexity Scoring') router.push('/dashboard/complexity')
+                          else if (item === 'Repo Readme Maker') router.push('/dashboard/readme-maker')
                           else if (item === 'Wiki Generator') router.push('/dashboard/wiki-generator')
                         }}
                         style={{

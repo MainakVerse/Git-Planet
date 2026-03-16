@@ -1505,7 +1505,7 @@ export default function Home() {
               <li>Codebase Dependency Grapher</li>
               <li>Code Quality Analyser</li>
               <li>Dead code &amp; API surface extraction</li>
-              <li>Repository complexity scoring</li>
+              <li>Repository Repo Readme Maker</li>
               <li>Wiki Generator</li>
             </ul>
           </div>
