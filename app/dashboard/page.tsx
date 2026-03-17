@@ -42,7 +42,7 @@ const FEATURE_GROUPS = [
     label: 'DEVELOPER INTELLIGENCE',
     color: '#7B61FF',
     items: [
-      'Skill Inference from Commits', 'Coding Style Fingerprint', 'Developer Influence Score',
+      'Developer Intelligence Score', 'Coding Style Fingerprint', 'Developer Influence Score',
       'Career Growth Graph', 'File Ownership Inference', 'Contributor Network Analysis',
     ],
   },
@@ -740,6 +740,7 @@ export default function Dashboard() {
                           else if (item === 'Dead Code Extractor') router.push('/dashboard/dead-code')
                           else if (item === 'Repo Readme Maker') router.push('/dashboard/readme-maker')
                           else if (item === 'Wiki Generator') router.push('/dashboard/wiki-generator')
+                          else if (item === 'Developer Intelligence Score') router.push('/dashboard/developer-intelligence-score')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,
