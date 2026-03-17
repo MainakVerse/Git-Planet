@@ -741,6 +741,7 @@ export default function Dashboard() {
                           else if (item === 'Repo Readme Maker') router.push('/dashboard/readme-maker')
                           else if (item === 'Wiki Generator') router.push('/dashboard/wiki-generator')
                           else if (item === 'Developer Intelligence Score') router.push('/dashboard/developer-intelligence-score')
+                          else if (item === 'Coding Style Fingerprint') router.push('/dashboard/style-fingerprint')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,

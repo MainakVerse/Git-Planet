@@ -9,7 +9,9 @@
       "Bash(mkdir -p \"c:/Users/maina/OneDrive/Desktop/Git-Planet/app/dashboard/code-quality\")",
       "Bash(node -e \":*)",
       "Read(//c/Users/maina/.claude/projects/c--Users-maina-OneDrive-Desktop-Git-Planet/3236e55b-11dd-4c6b-8064-ae1f5af231f3/tool-results/**)",
-      "Read(//c/Users/maina/.claude/projects/c--Users-maina-OneDrive-Desktop-Git-Planet/ff36cbbd-c173-47c4-8de1-61dda2b4f738/tool-results/**)"
+      "Read(//c/Users/maina/.claude/projects/c--Users-maina-OneDrive-Desktop-Git-Planet/ff36cbbd-c173-47c4-8de1-61dda2b4f738/tool-results/**)",
+      "Bash(grep -E \"\\\\.tsx$|\\\\.ts$\")",
+      "Bash(ls -la /c/Users/maina/OneDrive/Desktop/Git-Planet/app/dashboard/*/)"
     ]
   }
 }
