@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find /c/Users/maina/OneDrive/Desktop/Git-Planet -not -path */node_modules/* -not -path */.git/* -not -path */.next/* -type f)"
+      "Bash(find /c/Users/maina/OneDrive/Desktop/Git-Planet -not -path */node_modules/* -not -path */.git/* -not -path */.next/* -type f)",
+      "Bash(git -C \"c:/Users/MAINAK CHAUDHURI/OneDrive/Desktop/Git-Planet\" branch -a)",
+      "Bash(git -C \"c:/Users/MAINAK CHAUDHURI/OneDrive/Desktop/Git-Planet\" branch -d main)",
+      "Bash(git -C \"c:/Users/MAINAK CHAUDHURI/OneDrive/Desktop/Git-Planet\" push origin --delete main)",
+      "Bash(taskkill /F /PID 21920)",
+      "Bash(rm -f \"c:\\\\Users\\\\MAINAK CHAUDHURI\\\\OneDrive\\\\Desktop\\\\Git-Planet\\\\.next\\\\dev\\\\lock\")"
     ]
   }
 }

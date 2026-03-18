@@ -26,9 +26,13 @@ interface GithubRepo  {
 // ── Fingerprint SVG ───────────────────────────────────────────────────────────
 
 function FingerprintSVG({ dimensions, size = 220 }: { dimensions: StyleDimension[]; size?: number }) {
-  const cx = size / 2, cy = size / 2
-  const R  = size * 0.38
-  const n  = dimensions.length
+  const PAD  = 52                       // room for labels on every side
+  const svgW = size + PAD * 2
+  const svgH = size + PAD * 2
+  const cx   = svgW / 2
+  const cy   = svgH / 2
+  const R    = size * 0.44
+  const n    = dimensions.length
   const levels = 5
 
   function angle(i: number) { return (i / n) * 2 * Math.PI - Math.PI / 2 }
@@ -37,19 +41,16 @@ function FingerprintSVG({ dimensions, size = 220 }: { dimensions: StyleDimension
     return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) }
   }
 
-  // Build the score polygon path
   const scorePts = dimensions.map((d, i) => {
     const { x, y } = pt(i, (d.score / 100) * R)
     return `${x},${y}`
   }).join(' ')
 
-  // Secondary polygon at 50% for reference
   const midPts = dimensions.map((_, i) => {
     const { x, y } = pt(i, R * 0.5)
     return `${x},${y}`
   }).join(' ')
 
-  // Build concentric ring polygons for grid
   const gridRings = Array.from({ length: levels }, (_, l) => {
     const r = ((l + 1) / levels) * R
     return dimensions.map((_, i) => {
@@ -59,8 +60,7 @@ function FingerprintSVG({ dimensions, size = 220 }: { dimensions: StyleDimension
   })
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: 'visible' }}>
-      {/* Outer glow */}
+    <svg width={svgW} height={svgH} viewBox={`0 0 ${svgW} ${svgH}`} style={{ display: 'block' }}>
       <defs>
         <radialGradient id="fpGlow" cx="50%" cy="50%" r="50%">
           <stop offset="0%" stopColor={ACCENT} stopOpacity={0.08} />
@@ -74,29 +74,21 @@ function FingerprintSVG({ dimensions, size = 220 }: { dimensions: StyleDimension
 
       <circle cx={cx} cy={cy} r={R + 10} fill="url(#fpGlow)" />
 
-      {/* Grid rings */}
       {gridRings.map((pts, l) => (
         <polygon key={l} points={pts} fill="none"
           stroke={`rgba(0,229,255,${0.04 + l * 0.03})`} strokeWidth={1} />
       ))}
 
-      {/* Axis lines */}
       {dimensions.map((_, i) => {
         const { x, y } = pt(i, R)
         return <line key={i} x1={cx} y1={cy} x2={x} y2={y} stroke="rgba(255,255,255,0.06)" strokeWidth={1} />
       })}
 
-      {/* Mid reference */}
       <polygon points={midPts} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={1} strokeDasharray="3 3" />
-
-      {/* Score area fill */}
       <polygon points={scorePts} fill={`${ACCENT}14`} stroke="none" />
-
-      {/* Score border with glow */}
       <polygon points={scorePts} fill="none" stroke={ACCENT} strokeWidth={2}
         strokeLinejoin="round" filter="url(#glow)" />
 
-      {/* Vertex dots */}
       {dimensions.map((d, i) => {
         const { x, y } = pt(i, (d.score / 100) * R)
         return (
@@ -107,14 +99,16 @@ function FingerprintSVG({ dimensions, size = 220 }: { dimensions: StyleDimension
         )
       })}
 
-      {/* Axis labels */}
+      {/* Axis labels — rendered inside the padded viewBox */}
       {dimensions.map((d, i) => {
-        const { x, y } = pt(i, R + 22)
-        const anchor = x < cx - 8 ? 'end' : x > cx + 8 ? 'start' : 'middle'
+        const { x, y } = pt(i, R + 20)
+        const anchor = x < cx - 6 ? 'end' : x > cx + 6 ? 'start' : 'middle'
+        // vertical alignment: nudge up when above center
+        const dy = y < cy - 6 ? '-0.3em' : y > cy + 6 ? '0.9em' : '0.35em'
         return (
-          <text key={i} x={x} y={y} textAnchor={anchor}
-            fill={d.color} fontSize={8.5}
-            fontFamily="'Orbitron',monospace" fontWeight={700} letterSpacing="0.08em">
+          <text key={i} x={x} y={y} dy={dy} textAnchor={anchor}
+            fill={d.color} fontSize={9}
+            fontFamily="'Orbitron',monospace" fontWeight={700} letterSpacing="0.07em">
             {d.label.toUpperCase().split(' ')[0]}
           </text>
         )
@@ -323,7 +317,7 @@ export default function StyleFingerprintPage() {
   const [report,       setReport]       = useState<StyleFingerprintReport | null>(null)
   const [error,        setError]        = useState<string | null>(null)
   const [activeSnippet, setActiveSnippet] = useState<CodeSnippet | null>(null)
-  const [activeTab,    setActiveTab]    = useState<'radar' | 'bars'>('radar')
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   // Auth + user data
   useEffect(() => {
@@ -337,6 +331,13 @@ export default function StyleFingerprintPage() {
       setLoading(false)
     })()
   }, [router])
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const close = () => setDropdownOpen(false)
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [dropdownOpen])
 
   async function runAnalysis() {
     if (!selectedRepo || !user) return
@@ -392,7 +393,7 @@ export default function StyleFingerprintPage() {
         )}
       </nav>
 
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '24px 20px' }}>
+      <div style={{ maxWidth: 1440, margin: '0 auto', padding: '24px 24px' }}>
 
         {/* ── Header ────────────────────────────────────────────────────────── */}
         <div style={{ marginBottom: 28 }}>
@@ -408,23 +409,46 @@ export default function StyleFingerprintPage() {
         <div style={{ background: 'rgba(13,17,23,0.8)', border: `1px solid ${ACCENT}18`, borderRadius: 10, padding: '16px 18px', marginBottom: 24, display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
             <label style={{ fontFamily: "'Orbitron',monospace", fontSize: 8.5, color: ACCENT, letterSpacing: '0.12em', display: 'block', marginBottom: 7 }}>SELECT REPOSITORY</label>
-            <select
-              value={selectedRepo?.name ?? ''}
-              onChange={e => {
-                const r = repos.find(x => x.name === e.target.value) ?? null
-                setSelectedRepo(r); setReport(null); setError(null)
-              }}
-              style={{
-                width: '100%', background: 'rgba(0,0,0,0.4)', border: `1px solid ${ACCENT}25`, borderRadius: 6,
-                color: '#e6edf3', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, padding: '7px 10px',
-                outline: 'none', appearance: 'none', cursor: 'pointer',
-              }}
-            >
-              <option value="">— choose a repository —</option>
-              {repos.map(r => (
-                <option key={r.id} value={r.name}>{r.name}{r.language ? ` (${r.language})` : ''}</option>
-              ))}
-            </select>
+            <div style={{ position: 'relative' }}>
+              <button
+                onClick={e => { e.stopPropagation(); setDropdownOpen(o => !o) }}
+                style={{
+                  width: '100%', background: '#0d1117', border: `1px solid ${ACCENT}25`, borderRadius: 6,
+                  color: selectedRepo ? '#e6edf3' : '#7d8590', fontFamily: "'JetBrains Mono',monospace", fontSize: 10,
+                  padding: '7px 28px 7px 10px', outline: 'none', cursor: 'pointer', textAlign: 'left',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}
+              >
+                <span>{selectedRepo ? `${selectedRepo.name}${selectedRepo.language ? ` (${selectedRepo.language})` : ''}` : '— choose a repository —'}</span>
+                <span style={{ color: ACCENT, fontSize: 8, marginLeft: 8 }}>{dropdownOpen ? '▲' : '▼'}</span>
+              </button>
+              {dropdownOpen && (
+                <div style={{
+                  position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 200,
+                  background: '#0d1117', border: `1px solid ${ACCENT}25`, borderRadius: 6,
+                  marginTop: 3, maxHeight: 220, overflowY: 'auto',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.6)',
+                }}>
+                  {repos.map(r => (
+                    <div
+                      key={r.id}
+                      onClick={() => { setSelectedRepo(r); setReport(null); setError(null); setDropdownOpen(false) }}
+                      style={{
+                        padding: '7px 10px', cursor: 'pointer', background: selectedRepo?.id === r.id ? `${ACCENT}18` : '#0d1117',
+                        color: selectedRepo?.id === r.id ? ACCENT : '#e6edf3',
+                        fontFamily: "'JetBrains Mono',monospace", fontSize: 10,
+                        borderBottom: '1px solid rgba(255,255,255,0.04)',
+                        transition: 'background 0.15s',
+                      }}
+                      onMouseEnter={e => { if (selectedRepo?.id !== r.id) (e.currentTarget as HTMLDivElement).style.background = 'rgba(255,255,255,0.06)' }}
+                      onMouseLeave={e => { if (selectedRepo?.id !== r.id) (e.currentTarget as HTMLDivElement).style.background = '#0d1117' }}
+                    >
+                      {r.name}{r.language ? ` (${r.language})` : ''}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           <button
@@ -463,36 +487,30 @@ export default function StyleFingerprintPage() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 20, animation: 'fadeUp 0.4s ease' }}>
 
             {/* ── Row 1: Fingerprint card + Archetype + AI summary ──────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: 18, alignItems: 'start' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '380px 1fr', gap: 20, alignItems: 'start' }}>
 
               {/* Fingerprint visual card */}
               <div style={{
                 background: 'rgba(13,17,23,0.9)', border: `1px solid ${ACCENT}22`, borderRadius: 12,
                 padding: '20px 18px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14,
-                minWidth: 260,
               }}>
                 <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, letterSpacing: '0.15em', color: ACCENT }}>STYLE FINGERPRINT</div>
-                <FingerprintSVG dimensions={report.dimensions} size={200} />
+                <FingerprintSVG dimensions={report.dimensions} size={260} />
 
                 {/* Overall score */}
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 32, fontWeight: 900, color: ACCENT, lineHeight: 1, textShadow: `0 0 20px ${ACCENT}60` }}>
+                  <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 52, fontWeight: 900, color: ACCENT, lineHeight: 1, textShadow: `0 0 20px ${ACCENT}60` }}>
                     {report.overallStyleScore}
                   </div>
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8.5, color: '#7d8590', letterSpacing: '0.1em', marginTop: 3 }}>OVERALL STYLE SCORE</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 13, color: '#7d8590', letterSpacing: '0.1em', marginTop: 6 }}>OVERALL STYLE SCORE</div>
                 </div>
 
                 {/* Repo info */}
                 <div style={{ textAlign: 'center', padding: '8px 12px', background: 'rgba(0,229,255,0.04)', borderRadius: 6, border: `1px solid ${ACCENT}14`, width: '100%' }}>
-                  <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 9, color: ACCENT }}>{report.owner}/{report.repo}</div>
-                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#7d8590', marginTop: 3 }}>{report.language} · {report.meta.filesAnalyzed} files · {report.meta.totalLines.toLocaleString()} lines</div>
+                  <div style={{ fontFamily: "'Orbitron',monospace", fontSize: 14, color: ACCENT }}>{report.owner}/{report.repo}</div>
+                  <div style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 12, color: '#7d8590', marginTop: 3 }}>{report.language} · {report.meta.filesAnalyzed} files · {report.meta.totalLines.toLocaleString()} lines</div>
                 </div>
 
-                {/* Consistency ring */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                  <ConsistencyRing score={report.consistencyScore} size={72} />
-                  <span style={{ fontFamily: "'JetBrains Mono',monospace", fontSize: 8, color: '#7d8590', letterSpacing: '0.1em' }}>CONSISTENCY</span>
-                </div>
               </div>
 
               {/* Right column: archetype + summary + tags */}
@@ -515,11 +533,6 @@ export default function StyleFingerprintPage() {
                   </div>
                 </Card>
 
-                {/* AI Summary */}
-                <Card title="AI STYLE ANALYSIS" accent={PURPLE} icon="✦">
-                  <p style={{ fontFamily: "'Space Grotesk',sans-serif", fontSize: 12, color: '#c9d1d9', lineHeight: 1.7, margin: 0 }}>{report.aiSummary}</p>
-                </Card>
-
                 {/* Style Tags */}
                 <Card title="STYLE SIGNATURES" accent={GREEN} icon="⬡">
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -530,52 +543,30 @@ export default function StyleFingerprintPage() {
                   </div>
                 </Card>
 
+                {/* Raw signals */}
+                <Card title="RAW SIGNALS" accent={GOLD} icon="⚙">
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px', fontSize: '130%' }}>
+                    <MetricRow label="camelCase ratio" value={`${Math.round(report.rawSignals.camelCaseRatio * 100)}%`} color={ACCENT} />
+                    <MetricRow label="arrow fn ratio" value={`${Math.round(report.rawSignals.arrowFnRatio * 100)}%`} color={ACCENT} />
+                    <MetricRow label="async/await" value={`${report.rawSignals.asyncAwaitPct}%`} color={GREEN} />
+                    <MetricRow label="promise chains" value={`${report.rawSignals.promiseChainPct}%`} color={GOLD} />
+                    <MetricRow label="try/catch coverage" value={`${report.rawSignals.tryCatchCoverage}%`} color={ORANGE} />
+                    <MetricRow label="comment density" value={`${report.rawSignals.commentDensity}%`} color={PURPLE} />
+                    <MetricRow label="avg fn length" value={`${report.rawSignals.avgFunctionLines} ln`} color={PINK} />
+                    <MetricRow label="avg file lines" value={report.rawSignals.avgFileLines} color={VIOLET} />
+                    <MetricRow label="avg line length" value={`${report.rawSignals.avgLineLength} ch`} color={RED} />
+                    <MetricRow label="avg nesting" value={report.rawSignals.avgMaxNesting} color={ORANGE} />
+                    <MetricRow label="avg imports/file" value={report.rawSignals.avgImports} color={ACCENT} />
+                    <MetricRow label="short fn ratio" value={`${Math.round(report.rawSignals.shortFnRatio * 100)}%`} color={GREEN} />
+                    <MetricRow label="const/var ratio" value={`${Math.round(report.rawSignals.constVarRatio * 100)}%`} color={GOLD} />
+                    <MetricRow label="default exports" value={`${Math.round(report.rawSignals.defaultExportRatio * 100)}%`} color={PURPLE} />
+                  </div>
+                </Card>
+
               </div>
             </div>
 
-            {/* ── Row 2: Chart + Raw signals ────────────────────────────────── */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
-
-              {/* Chart */}
-              <Card title="DIMENSION CHART" accent={ACCENT} icon="◈">
-                <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
-                  {(['radar', 'bars'] as const).map(tab => (
-                    <button key={tab} onClick={() => setActiveTab(tab)} style={{
-                      padding: '4px 12px', borderRadius: 4, border: `1px solid ${activeTab === tab ? ACCENT + '50' : 'rgba(255,255,255,0.08)'}`,
-                      background: activeTab === tab ? `${ACCENT}10` : 'transparent',
-                      fontFamily: "'Orbitron',monospace", fontSize: 8, color: activeTab === tab ? ACCENT : '#7d8590',
-                      cursor: 'pointer', letterSpacing: '0.1em',
-                    }}>{tab === 'radar' ? 'SPIDER' : 'BARS'}</button>
-                  ))}
-                </div>
-                {activeTab === 'radar'
-                  ? <div style={{ display: 'flex', justifyContent: 'center' }}><FingerprintSVG dimensions={report.dimensions} size={240} /></div>
-                  : <RadarBarChart dimensions={report.dimensions} />
-                }
-              </Card>
-
-              {/* Raw signals */}
-              <Card title="RAW SIGNALS" accent={GOLD} icon="⚙">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 14px' }}>
-                  <MetricRow label="camelCase ratio" value={`${Math.round(report.rawSignals.camelCaseRatio * 100)}%`} color={ACCENT} />
-                  <MetricRow label="arrow fn ratio" value={`${Math.round(report.rawSignals.arrowFnRatio * 100)}%`} color={ACCENT} />
-                  <MetricRow label="async/await" value={`${report.rawSignals.asyncAwaitPct}%`} color={GREEN} />
-                  <MetricRow label="promise chains" value={`${report.rawSignals.promiseChainPct}%`} color={GOLD} />
-                  <MetricRow label="try/catch coverage" value={`${report.rawSignals.tryCatchCoverage}%`} color={ORANGE} />
-                  <MetricRow label="comment density" value={`${report.rawSignals.commentDensity}%`} color={PURPLE} />
-                  <MetricRow label="avg fn length" value={`${report.rawSignals.avgFunctionLines} ln`} color={PINK} />
-                  <MetricRow label="avg file lines" value={report.rawSignals.avgFileLines} color={VIOLET} />
-                  <MetricRow label="avg line length" value={`${report.rawSignals.avgLineLength} ch`} color={RED} />
-                  <MetricRow label="avg nesting" value={report.rawSignals.avgMaxNesting} color={ORANGE} />
-                  <MetricRow label="avg imports/file" value={report.rawSignals.avgImports} color={ACCENT} />
-                  <MetricRow label="short fn ratio" value={`${Math.round(report.rawSignals.shortFnRatio * 100)}%`} color={GREEN} />
-                  <MetricRow label="const/var ratio" value={`${Math.round(report.rawSignals.constVarRatio * 100)}%`} color={GOLD} />
-                  <MetricRow label="default exports" value={`${Math.round(report.rawSignals.defaultExportRatio * 100)}%`} color={PURPLE} />
-                </div>
-              </Card>
-            </div>
-
-            {/* ── Row 3: Dimension deep-dive cards ──────────────────────────── */}
+            {/* ── Row 2: Dimension deep-dive cards ──────────────────────────── */}
             <Card title="DIMENSION BREAKDOWN · click a snippet to view code" accent={PURPLE} icon="◐">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(230px,1fr))', gap: 12 }}>
                 {report.dimensions.map(d => (
