@@ -7,6 +7,7 @@ import {
   ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts'
 import { ComposableMap, Geographies, Geography, Graticule, Sphere } from 'react-simple-maps'
+import { GitGptModal } from '@/components/git-gpt-modal'
 
 interface GithubUser {
   login: string; name: string | null; avatar_url: string; bio: string | null
@@ -437,9 +438,7 @@ export default function Dashboard() {
           <input placeholder="Analyze any repository..." style={{ flex: 1, background: 'transparent', border: 'none', outline: 'none', fontFamily: "'JetBrains Mono',monospace", fontSize: 10, color: '#e6edf3' }} />
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-          {['◫', '⊙'].map((ic) => (
-            <button key={ic} style={{ width: 26, height: 26, background: 'transparent', border: '1px solid rgba(0,229,255,0.1)', borderRadius: 5, color: '#7d8590', fontSize: 12, cursor: 'pointer' }}>{ic}</button>
-          ))}
+          <GitGptModal user={user} repos={repos} />
           <div style={{ width: 1, height: 20, background: 'rgba(0,229,255,0.1)', margin: '0 2px' }} />
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
             <div style={{ textAlign: 'right' }}>
