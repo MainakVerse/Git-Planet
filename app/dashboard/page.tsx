@@ -742,6 +742,16 @@ export default function Dashboard() {
                           else if (item === 'Wiki Generator') router.push('/dashboard/wiki-generator')
                           else if (item === 'Developer Intelligence Score') router.push('/dashboard/developer-intelligence-score')
                           else if (item === 'Coding Style Fingerprint') router.push('/dashboard/style-fingerprint')
+                          else if (item === 'Developer Influence Score') router.push('/dashboard/influence')
+                          else if (item === 'Career Growth Graph') router.push('/dashboard/career-growth')
+                          else if (item === 'File Ownership Inference') router.push('/dashboard/file-ownership')
+                          else if (item === 'Contributor Network Analysis') router.push('/dashboard/contributor-network')
+                          else if (item === 'Maintainer Burnout Detection') router.push('/dashboard/burnout')
+                          else if (item === 'Bus Factor Analysis') router.push('/dashboard/bus-factor')
+                          else if (item === 'Contributor Churn Analysis') router.push('/dashboard/churn')
+                          else if (item === 'Community Engagement Score') router.push('/dashboard/engagement')
+                          else if (item === 'Issue Lifecycle Analytics') router.push('/dashboard/issue-lifecycle')
+                          else if (item === 'Repository Health Score') router.push('/dashboard/repo-health')
                         }}
                         style={{
                           width: '100%', flex: 1, minHeight: 0,
