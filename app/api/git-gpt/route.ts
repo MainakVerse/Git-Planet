@@ -89,21 +89,74 @@ function compactJson(value: unknown): string {
 }
 
 function fallbackToolSummary(feature: GitGptFeature, target: string, data: unknown): string {
-  const json = compactJson(data)
+  const record = data && typeof data === 'object' ? data as Record<string, unknown> : {}
+  const highlights: string[] = []
+
+  for (const [key, value] of Object.entries(record).slice(0, 10)) {
+    if (key === 'meta') continue
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      highlights.push(`- ${key}: ${String(value)}`)
+    } else if (Array.isArray(value)) {
+      highlights.push(`- ${key}: ${value.length} item${value.length === 1 ? '' : 's'}`)
+    } else if (value && typeof value === 'object') {
+      highlights.push(`- ${key}: available`)
+    }
+  }
+
   return [
     `Ran /${feature.slug} (${feature.label}) for ${target}.`,
     '',
-    'The tool completed successfully. Here is the compact result payload:',
+    highlights.length ? 'Key result signals:' : 'The tool completed successfully.',
+    ...highlights,
     '',
-    '```json',
-    json,
-    '```',
+    `Open ${feature.page} for the full interactive view.`,
+  ].join('\n')
+}
+
+function localChatFallback(message: string, context?: GitGptContext): string {
+  const lower = message.toLowerCase()
+  const repo = selectedRepo(context)
+
+  if (lower.includes('command') || lower.includes('feature') || lower.includes('/')) {
+    return [
+      'Git GPT can invoke every Git Planet feature with slash commands.',
+      '',
+      'Useful starters:',
+      '- /code-quality checks maintainability signals',
+      '- /vuln-scan scans dependency vulnerabilities',
+      '- /secret-scan looks for leaked credentials',
+      '- /repo-health summarizes project health',
+      '- /readme generates README content',
+      '- /tech-radar react searches emerging projects by topic',
+      '',
+      repo ? `Current target repo: ${repo.owner}/${repo.name}.` : 'Select a repo from the dropdown before running repo commands.',
+    ].join('\n')
+  }
+
+  const matchedFeature = GIT_GPT_FEATURES.find((feature) => {
+    const haystack = [feature.slug, feature.label, feature.group, ...feature.aliases].join(' ').toLowerCase()
+    return lower.split(/\s+/).some((word) => word.length > 4 && haystack.includes(word))
+  })
+
+  if (matchedFeature) {
+    return [
+      `I can run that through ${matchedFeature.label}.`,
+      '',
+      `Type /${matchedFeature.slug}${matchedFeature.scope === 'query' ? ' <topic>' : ''} to invoke it.`,
+      matchedFeature.scope === 'repo' && repo ? `It will use ${repo.owner}/${repo.name}.` : '',
+    ].filter(Boolean).join('\n')
+  }
+
+  return [
+    'I am online, but the LLM provider did not return a response for this free-form message.',
+    '',
+    'You can still invoke the product tools directly with / commands. Try /repo-health, /code-quality, /vuln-scan, /readme, or type / to see the full list.',
   ].join('\n')
 }
 
 async function runFeature(req: NextRequest, feature: GitGptFeature, args: string, context?: GitGptContext) {
   const built = buildToolUrl(feature, req.nextUrl.origin, args, context)
-  if ('error' in built) return NextResponse.json({ error: built.error }, { status: 400 })
+  if ('error' in built) return NextResponse.json({ reply: built.error })
 
   const toolRes = await fetch(built.url, {
     headers: {
@@ -116,9 +169,15 @@ async function runFeature(req: NextRequest, feature: GitGptFeature, args: string
   const data = contentType.includes('application/json') ? await toolRes.json() : { text: await toolRes.text() }
   if (!toolRes.ok) {
     return NextResponse.json({
-      error: data?.error ?? `${feature.label} failed with ${toolRes.status}.`,
+      reply: [
+        `${feature.label} could not run for ${built.target}.`,
+        '',
+        data?.error ? `Reason: ${data.error}` : `The feature endpoint returned HTTP ${toolRes.status}.`,
+        '',
+        feature.scope === 'repo' ? 'Try selecting a different repository or checking that your GitHub session has repo access.' : 'Try a different target and run the command again.',
+      ].join('\n'),
       tool: { slug: feature.slug, label: feature.label, target: built.target, status: toolRes.status },
-    }, { status: toolRes.status })
+    })
   }
 
   const compact = compactJson(data)
@@ -168,9 +227,13 @@ export async function POST(req: NextRequest) {
         .filter((f) => normalizeCommandToken(f.slug).includes(normalizeCommandToken(command.token)) || normalizeCommandToken(f.label).includes(normalizeCommandToken(command.token)))
         .slice(0, 6)
       return NextResponse.json({
-        error: `Unknown command /${command.token}.`,
+        reply: [
+          `I do not recognize /${command.token}.`,
+          '',
+          near.length ? `Closest commands: ${near.map((f) => `/${f.slug}`).join(', ')}` : `Type / to browse all ${GIT_GPT_FEATURES.length} commands.`,
+        ].join('\n'),
         suggestions: near.map((f) => ({ slug: f.slug, label: f.label })),
-      }, { status: 400 })
+      })
     }
     return runFeature(req, feature, command.args, body.context)
   }
@@ -200,9 +263,7 @@ Keep answers clear and useful. Do not invent tool results before a slash command
     { maxTokens: 900 },
   )
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error ?? 'Git GPT failed.' }, { status: result.status ?? 503 })
-  }
+  if (!result.ok) return NextResponse.json({ reply: localChatFallback(message, body.context) })
 
   return NextResponse.json({ reply: result.reply })
 }

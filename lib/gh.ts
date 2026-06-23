@@ -313,6 +313,10 @@ export async function aiJson<T>(prompt: string, fallback: T, maxTokens = 1200): 
 export interface ChatTurn { role: 'user' | 'assistant'; content: string }
 export interface ChatResult { ok: boolean; reply?: string; error?: string; status?: number }
 
+function cleanEnv(value: string | undefined): string {
+  return (value ?? '').trim().replace(/^['"]|['"]$/g, '')
+}
+
 /**
  * Multi-turn grounded chat for the "Ask AI" modes. Uses Opus for the deeper
  * reasoning tasks (repo explanation, startup ideation). Returns an explicit
@@ -321,32 +325,43 @@ export interface ChatResult { ok: boolean; reply?: string; error?: string; statu
 export async function aiChat(
   system: string,
   history: ChatTurn[],
-  { model = 'claude-opus-4-8', maxTokens = 1024 }: { model?: string; maxTokens?: number } = {},
+  { model = cleanEnv(process.env.ANTHROPIC_MODEL) || 'claude-opus-4-8', maxTokens = 1024 }: { model?: string; maxTokens?: number } = {},
 ): Promise<ChatResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY
+  const apiKey = cleanEnv(process.env.ANTHROPIC_API_KEY)
   if (!apiKey) return { ok: false, error: 'Add ANTHROPIC_API_KEY to your .env to enable Ask-AI mode.', status: 503 }
-  try {
-    const ctrl = new AbortController()
-    const t = setTimeout(() => ctrl.abort(), 45_000)
-    let res: Response
+
+  const models = [model, 'claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5-20251001']
+    .filter((value, index, all) => value && all.indexOf(value) === index)
+
+  let lastError = 'Chat failed'
+  for (const modelId of models) {
     try {
-      res = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: history }),
-        signal: ctrl.signal,
-      })
-    } finally { clearTimeout(t) }
-    if (!res.ok) {
-      const txt = await res.text()
-      return { ok: false, error: `Anthropic ${res.status}: ${txt.slice(0, 140)}`, status: res.status }
+      const ctrl = new AbortController()
+      const t = setTimeout(() => ctrl.abort(), 45_000)
+      let res: Response
+      try {
+        res = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          body: JSON.stringify({ model: modelId, max_tokens: maxTokens, system, messages: history }),
+          signal: ctrl.signal,
+        })
+      } finally { clearTimeout(t) }
+      if (!res.ok) {
+        const txt = await res.text()
+        lastError = `Anthropic ${res.status} (${modelId}): ${txt.slice(0, 140)}`
+        continue
+      }
+      const data = await res.json()
+      const reply = data?.content?.[0]?.text
+      if (reply) return { ok: true, reply }
+      lastError = `Empty response from ${modelId}`
+    } catch (e) {
+      lastError = e instanceof Error ? e.message : 'Chat failed'
     }
-    const data = await res.json()
-    const reply = data?.content?.[0]?.text
-    return reply ? { ok: true, reply } : { ok: false, error: 'Empty response', status: 502 }
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'Chat failed', status: 503 }
   }
+
+  return { ok: false, error: lastError, status: 503 }
 }
 
 // ── Repo content fetchers (shared across AI-doc / security modules) ──────────────────
