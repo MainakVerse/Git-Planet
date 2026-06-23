@@ -115,6 +115,42 @@ export function useProfileAnalysis<T>(endpoint: string) {
   return { user, loginInput, setLoginInput, report, loading, analysing, error, analyse, router }
 }
 
+// ── useQueryAnalysis hook (free-text query features) ──────────────────────────
+//
+// For discovery features that take an arbitrary query (topic, language, keyword)
+// rather than a specific repo or user.
+
+export function useQueryAnalysis<T>(endpoint: string, param = 'q', initial = '') {
+  const router = useRouter()
+  const [query, setQuery] = useState(initial)
+  const [report, setReport] = useState<T | null>(null)
+  const [analysing, setAnalysing] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    // ensure auth; redirect if not logged in
+    fetch('/api/github/user').then(r => { if (r.status === 401) router.push('/') }).catch(() => {})
+  }, [router])
+
+  const analyse = useCallback(async (override?: string) => {
+    const q = (override ?? query).trim()
+    if (!q) return
+    setAnalysing(true); setError(''); setReport(null)
+    try {
+      const res = await fetch(`${endpoint}?${param}=${encodeURIComponent(q)}`)
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Analysis failed')
+      setReport(data as T)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Analysis failed')
+    } finally {
+      setAnalysing(false)
+    }
+  }, [endpoint, param, query])
+
+  return { query, setQuery, report, analysing, error, analyse, router }
+}
+
 // ── Profile shell ──────────────────────────────────────────────────────────────
 
 export function ProfileShell({
@@ -171,6 +207,59 @@ export function ProfileShell({
           <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(255,68,102,0.08)', border: '1px solid rgba(255,68,102,0.25)', borderRadius: 8, fontFamily: FONT.mono, fontSize: 10, color: C.danger }}>{error}</div>
         )}
 
+        {analysing && <LoadingPanel accent={accent} />}
+        {!analysing && !hasReport && !error && <EmptyPanel accent={accent} icon={icon} />}
+        {!analysing && hasReport && children}
+      </div>
+    </div>
+  )
+}
+
+// ── Query shell (free-text discovery features) ────────────────────────────────
+
+export function QueryShell({
+  title, subtitle, accent, icon,
+  query, setQuery, analysing, analyseLabel, onAnalyse, error, hasReport, children,
+  placeholder = 'topic, language or keyword…', prefix = '⌕', inputWidth = 220,
+}: {
+  title: string; subtitle: string; accent: string; icon: string
+  query: string; setQuery: (v: string) => void
+  analysing: boolean; analyseLabel: string; onAnalyse: () => void
+  error: string; hasReport: boolean; children: React.ReactNode
+  placeholder?: string; prefix?: string; inputWidth?: number
+}) {
+  const router = useRouter()
+  return (
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text, fontFamily: FONT.sans }}>
+      <div style={{ position: 'fixed', inset: 0, backgroundImage: 'linear-gradient(rgba(0,229,255,0.02) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.02) 1px,transparent 1px)', backgroundSize: '44px 44px', pointerEvents: 'none', zIndex: 0 }} />
+      <nav style={{ height: 44, position: 'sticky', top: 0, zIndex: 100, display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px', background: 'rgba(5,5,5,0.96)', borderBottom: '1px solid rgba(0,229,255,0.07)', backdropFilter: 'blur(14px)' }}>
+        <button onClick={() => router.push('/dashboard')} style={{ background: 'transparent', border: '1px solid rgba(0,229,255,0.15)', borderRadius: 5, color: C.accent, fontSize: 11, cursor: 'pointer', padding: '4px 10px', fontFamily: FONT.mono }}>← BACK</button>
+        <span style={{ fontFamily: FONT.orbitron, fontSize: 12, fontWeight: 700, letterSpacing: '0.14em', color: C.accent, textShadow: '0 0 14px rgba(0,229,255,0.4)' }}>GIT PLANET</span>
+        <span style={{ fontFamily: FONT.mono, fontSize: 9, color: C.dim, letterSpacing: '0.1em' }}>/ {title.toUpperCase()}</span>
+      </nav>
+      <div style={{ position: 'relative', zIndex: 1, maxWidth: 1180, margin: '0 auto', padding: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', marginBottom: 14 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
+              <span style={{ fontSize: 20, color: accent }}>{icon}</span>
+              <h1 style={{ fontFamily: FONT.orbitron, fontSize: 18, fontWeight: 700, color: C.text, margin: 0, letterSpacing: '0.03em' }}>{title}</h1>
+            </div>
+            <p style={{ fontFamily: FONT.sans, fontSize: 12, color: C.dim, margin: '5px 0 0', maxWidth: 560, lineHeight: 1.45 }}>{subtitle}</p>
+          </div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', height: 36, background: 'rgba(13,17,23,0.8)', border: `1px solid ${accent}33`, borderRadius: 7 }}>
+              <span style={{ color: `${accent}88`, fontSize: 12 }}>{prefix}</span>
+              <input value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') onAnalyse() }}
+                placeholder={placeholder}
+                style={{ width: inputWidth, background: 'transparent', border: 'none', outline: 'none', fontFamily: FONT.mono, fontSize: 12, color: C.text }} />
+            </div>
+            <button onClick={onAnalyse} disabled={!query.trim() || analysing}
+              style={{ height: 36, padding: '0 16px', borderRadius: 7, cursor: query.trim() && !analysing ? 'pointer' : 'not-allowed', background: analysing ? `${accent}10` : `${accent}1a`, border: `1px solid ${query.trim() && !analysing ? accent + '66' : accent + '22'}`, color: analysing ? `${accent}88` : accent, fontFamily: FONT.orbitron, fontSize: 10, fontWeight: 600, letterSpacing: '0.08em' }}>
+              {analysing ? 'SEARCHING…' : analyseLabel}
+            </button>
+          </div>
+        </div>
+        {error && <div style={{ marginBottom: 12, padding: '10px 12px', background: 'rgba(255,68,102,0.08)', border: '1px solid rgba(255,68,102,0.25)', borderRadius: 8, fontFamily: FONT.mono, fontSize: 10, color: C.danger }}>{error}</div>}
         {analysing && <LoadingPanel accent={accent} />}
         {!analysing && !hasReport && !error && <EmptyPanel accent={accent} icon={icon} />}
         {!analysing && hasReport && children}
@@ -456,11 +545,71 @@ export function LineArea({ points, color = C.accent, height = 140, yKey, xLabels
   )
 }
 
+export function Radar({ data, color = C.accent, size = 240 }: {
+  data: { skill: string; level: number }[]; color?: string; size?: number
+}) {
+  const cx = size / 2, cy = size / 2, R = size * 0.32, n = data.length, levels = 4
+  const angle = (i: number) => (i / n) * 2 * Math.PI - Math.PI / 2
+  const pt = (i: number, r: number) => ({ x: cx + r * Math.cos(angle(i)), y: cy + r * Math.sin(angle(i)) })
+  const poly = (vals: number[]) => vals.map((v, i) => { const p = pt(i, (v / 100) * R); return `${p.x},${p.y}` }).join(' ')
+  const grid = ['#ffffff06', '#ffffff0d', '#ffffff15', '#ffffff20']
+  return (
+    <svg width="100%" viewBox={`0 0 ${size} ${size}`} style={{ display: 'block', overflow: 'visible', maxHeight: size }}>
+      {Array.from({ length: levels }, (_, l) => (
+        <polygon key={l} points={data.map((_, i) => { const p = pt(i, ((l + 1) / levels) * R); return `${p.x},${p.y}` }).join(' ')} fill="none" stroke={grid[l]} strokeWidth={1} />
+      ))}
+      {data.map((_, i) => { const p = pt(i, R); return <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.07)" strokeWidth={1} /> })}
+      <polygon points={poly(data.map(d => d.level))} fill={`${color}26`} stroke={color} strokeWidth={2} strokeLinejoin="round" />
+      {data.map((d, i) => { const p = pt(i, (d.level / 100) * R); return <circle key={i} cx={p.x} cy={p.y} r={3} fill={color} style={{ filter: `drop-shadow(0 0 4px ${color})` }} /> })}
+      {data.map((d, i) => {
+        const p = pt(i, R + 16)
+        return <text key={i} x={p.x} y={p.y} fontFamily={FONT.mono} fontSize={8} fill={C.dim} textAnchor={Math.abs(p.x - cx) < 12 ? 'middle' : p.x > cx ? 'start' : 'end'} dominantBaseline="middle">{d.skill.length > 14 ? d.skill.slice(0, 13) + '…' : d.skill}</text>
+      })}
+    </svg>
+  )
+}
+
 export function Legend({ color, label }: { color: string; label: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
       <div style={{ width: 8, height: 8, borderRadius: 2, background: color, boxShadow: `0 0 5px ${color}` }} />
       <span style={{ fontFamily: FONT.mono, fontSize: 8, color: C.dim, letterSpacing: '0.06em' }}>{label}</span>
+    </div>
+  )
+}
+
+export function StepList({ items, accent = C.accent, numbered = true }: {
+  items: { title: string; detail?: string }[]; accent?: string; numbered?: boolean
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {items.map((it, i) => (
+        <div key={i} style={{ display: 'flex', gap: 11, alignItems: 'flex-start' }}>
+          <div style={{ flexShrink: 0, width: 24, height: 24, borderRadius: '50%', background: `${accent}18`, border: `1px solid ${accent}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: FONT.orbitron, fontSize: 10, fontWeight: 700, color: accent }}>
+            {numbered ? i + 1 : '▹'}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: FONT.sans, fontSize: 12.5, color: C.text, lineHeight: 1.45, fontWeight: 500 }}>{it.title}</div>
+            {it.detail && <div style={{ fontFamily: FONT.sans, fontSize: 11, color: C.dim, lineHeight: 1.5, marginTop: 2 }}>{it.detail}</div>}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+export function Chips({ items, color = C.accent, positive }: { items: string[]; color?: string; positive?: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+      {items.map((t, i) => <Pill key={i} text={t} color={color} positive={positive} />)}
+    </div>
+  )
+}
+
+export function CodeLine({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontFamily: FONT.mono, fontSize: 11, color: C.success, padding: '6px 10px', background: 'rgba(0,0,0,0.35)', borderRadius: 5, border: '1px solid rgba(0,255,136,0.15)' }}>
+      <span style={{ color: C.dim }}>$ </span>{children}
     </div>
   )
 }
