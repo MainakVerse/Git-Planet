@@ -127,7 +127,7 @@ function localChatFallback(message: string, context?: GitGptContext): string {
       '- /secret-scan looks for leaked credentials',
       '- /repo-health summarizes project health',
       '- /readme generates README content',
-      '- /tech-radar react searches emerging projects by topic',
+      '- /tech-radar react searches emerging projects by topic names',
       '',
       repo ? `Current target repo: ${repo.owner}/${repo.name}.` : 'Select a repo from the dropdown before running repo commands.',
     ].join('\n')
